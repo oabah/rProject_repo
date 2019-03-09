@@ -28,3 +28,17 @@ plot(pressure)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r xml}
+install.packages("XML")
+```
+```{r load}
+library(XML)
+url <- "file:///C:/Users/Ojoniko%20Nathan%20Abah/Desktop/cyberbullying_dataset/DataReleaseDec2011/XMLMergedFile.xml"
+xmldoc <- xmlParse(url)
+rootNode <- xmlRoot(xmldoc)
+rootNode[1]
+data <- xmlSApply(rootNode, function(x) xmlSApply(x, xmlValue))
+cd.catalog <- data.frame(t(data), row.names = NULL)
+cd.catalog[1:2,]
+```

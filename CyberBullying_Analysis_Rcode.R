@@ -1,3 +1,5 @@
+#https://community.rstudio.com/t/generate-a-data-frame-from-many-xml-files/10214
+
 #This example requires xml2 R package
 require(xml2)
 
@@ -23,4 +25,4 @@ severity <- as.character(Nodes_3)
 
 #Bind the vectors together as columns and convert the structure into a data frame
 LABElData <- data.frame(cbind(cases,bully_or_not,bullyword,severity))
-
+write.csv(LABElData,'C:\\Users\\Ojoniko Nathan Abah\\Desktop\\bullyingdata.csv', row.names = FALSE)

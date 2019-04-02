@@ -9,19 +9,19 @@ XML_data <- read_xml(URL)
 
 #retrieve text case
 Nodes_0 <- xml_find_all(XML_data, "//TEXT")
-cases <- as.character(Nodes_0)
+cases <- as.character(gsub("</?[^>]+>", "", Nodes_0))
 
 #retrieve answer
 Nodes_1 <- xml_find_all(XML_data, "//ANSWER")
-bully_or_not <- as.character(Nodes_1)
+bully_or_not <- as.character(gsub("</?[^>]+>", "", Nodes_1))
 
 #retrieve bullyword
 Nodes_2 <- xml_find_all(XML_data, "//CYBERBULLYWORD")
-bullyword <- as.character(Nodes_2)
+bullyword <- as.character(gsub("</?[^>]+>", "", Nodes_2))
 
 #Retreive severity
 Nodes_3 <- xml_find_all(XML_data, "//SEVERITY")
-severity <- as.character(Nodes_3)
+severity <- as.character(gsub("</?[^>]+>", "", Nodes_3))
 
 #Bind the vectors together as columns and convert the structure into a data frame
 LABElData <- data.frame(cbind(cases,bully_or_not,bullyword,severity))

@@ -1,141 +1,92 @@
-#https://community.rstudio.com/t/generate-a-data-frame-from-many-xml-files/10214
-
-#This example requires xml2 R package
-require(xml2)
-library(caret)
-
-library(devtools)
-library(readr)
-
-#Data Preparation
-##First, we include the following packages:
-require(jsonlite)
-require(rjson)
-require(modeltools)
-require(NLP)
-require(qdap)
-require(slam)
-require(SnowballC)
-require(tm)
-require(topicmodels)
-require(corrplot)
-require(ggplot2)
-require(scatterplot3d)
-require(RTextTools)
-library(e1071)
-
-
-
-#Parse XML
-URL <- "C:/Users/Ojoniko Nathan Abah/Desktop/CyberBullying_RProject/rProject_repo/cyberbullying_dataset/DataReleaseDec2011/XMLMergedFile.xml"
-XML_data <- read_xml(URL)
-
-#retrieve text case
-Nodes_0 <- xml_find_all(XML_data, "//TEXT")
-cases <- as.character(gsub("</?[^>]+>", "", Nodes_0))
-
-#retrieve answer
-Nodes_1 <- xml_find_all(XML_data, "//ANSWER")
-bully_or_not <- as.character(gsub("</?[^>]+>", "", Nodes_1))
-
-#retrieve bullyword
-Nodes_2 <- xml_find_all(XML_data, "//CYBERBULLYWORD")
-bullyword <- as.character(gsub("</?[^>]+>", "", Nodes_2))
-
-#Retreive severity
-Nodes_3 <- xml_find_all(XML_data, "//SEVERITY")
-severity <- as.character(gsub("</?[^>]+>", "", Nodes_3))
-
-#Bind the vectors together as columns and convert the structure into a data frame
-LABElData <- data.frame(cbind(cases,bully_or_not,bullyword,severity))
-write.csv(LABElData,'C:\\Users\\Ojoniko Nathan Abah\\Desktop\\bullyingdata.csv', row.names = FALSE)
-
-
-#doc_matrix <- create_matrix(LABElData$bullyword, language="english", removeNumbers=TRUE,
-#                            stemWords=TRUE, removeSparseTerms=.998)
-#container <- create_container(doc_matrix, df2$class, trainSize=1:546, testSize=547:13299, virgin=FALSE)
-
-
-#validation_index <- createDataPartition(LABElData$bullyword, p=0.80, list = FALSE)
-
-#validation <- LABElData[-validation_index,]
-
-#LABElData <- LABElData[validation_index,]
-
-#dim(LABElData)
-
-#sapply(LABElData, class)
-
-#head(LABElData)
-
-#levels(LABElData$bullyword)
-
-#percentage <- prop.table(table(LABElData$bullyword))*100
-#cbind(freq=table(LABElData$bullyword), percentage=percentage)
-
-#summary(LABElData)
-
-#x <- LABElData[,1:3]
-#y <- LABElData[,4]
-
-#par(mfrow=c(1,3))
-#  for(i in 1:3){
-#  boxplot(x[,i], main=names(iris)[i])  
-#}
-
-bullywords <- read_csv("C:\\Users\\Ojoniko Nathan Abah\\Desktop\\bullyingdata.csv")
-
-str(bullywords)
-
-bullyword_text <- bullywords$bullyword
-
+#Import libraries
 library(tm)
+library(SnowballC)
+library(wordcloud)
+library(RColorBrewer) 
+library(e1071)         #For Naive Bayes
+library(caret)         #For the Confusion Matrix
 
-bullyword_source <- VectorSource(bullyword_text)
+#Import data
+sms_raw <- read.csv("C:\\Users\\Ojoniko Nathan Abah\\Desktop\\bullyingdataset.csv")
+head(sms_raw)
 
-bullyword_corpus <- VCorpus(bullyword_source)
+sms_raw <- sms_raw[, 2:3]
+colnames(sms_raw) <- c("Msg", "Tag")
+str(sms_raw)
 
-bullyword_corpus[[15]][1]
+#Find the proportions of junk vs legitimate sms messages
+table(sms_raw$Tag)
+prop.table(table(sms_raw$Tag))
 
-tolower(bullyword_text)
 
-removePunctuation(bullyword_text)
 
-removeNumbers(bullyword_text)
+bullyword <- subset(sms_raw, Tag == "Yes")
+wordcloud(bullyword$Msg, max.words = 60, colors = brewer.pal(7, "Paired"), random.order = FALSE)
 
-stripWhitespace(bullyword_text)
 
-library(qdap)
+nonbullyword <- subset(sms_raw, Tag == "No")
+wordcloud(nonbullyword$Msg, max.words = 60, colors = brewer.pal(7, "Paired"), random.order = FALSE)
 
-bracketX(bullyword_text)
 
-replace_number(bullyword_text)
+sms_corpus <- VCorpus(VectorSource(sms_raw$Msg))
 
-replace_abbreviation(bullyword_text)
+sms_dtm <- DocumentTermMatrix(sms_corpus, control = 
+                                list(tolower = TRUE,
+                                     removeNumbers = TRUE,
+                                     stopwords = TRUE,
+                                     removePunctuation = TRUE,
+                                     stemming = TRUE))
 
-replace_contraction(bullyword_text)
+dim(sms_dtm)
 
-replace_symbol(bullyword_text)
 
-new_stops <- c("n/a", "na", stopwords("en"))
+#Training & Test set
+sms_dtm_train <- sms_dtm[1:9457, ]
+sms_dtm_test <- sms_dtm[9458:10572, ]
 
-removeWords(bullyword_text, new_stops)
+#Training & Test Label
+sms_train_labels <- sms_raw[1:9457, ]$Tag
+sms_test_labels <- sms_raw[9458:10572, ]$Tag
 
-frequent_terms <- freq_terms(bullyword_text, 50)
-plot(frequent_terms)
+#Proportion for training & test labels
+prop.table(table(sms_train_labels))
+prop.table(table(sms_test_labels))
 
-clean_corpus<-function(corpus){
-  corpus<- tm_map(corpus, stripWhitespace)
-  corpus<- tm_map(corpus, removePunctuation)
-  corpus<- tm_map(corpus, content_transformer(tolower))
-  corpus<- tm_map(corpus, removeWords, stopwords("en"))
-  corpus<- tm_map(corpus, removeWords, "na")
-    return(corpus)
+threshold <- 0.1
+
+min_freq = round(sms_dtm$nrow*(threshold/100),0)
+
+min_freq
+
+# Create vector of most frequent words
+freq_words <- findFreqTerms(x = sms_dtm, lowfreq = min_freq)
+
+str(freq_words)
+
+#Filter the DTM
+sms_dtm_freq_train <- sms_dtm_train[ , freq_words]
+sms_dtm_freq_test <- sms_dtm_test[ , freq_words]
+
+dim(sms_dtm_freq_train)sms_dtm_freq_train <- sms_dtm_train[ , freq_words]
+sms_dtm_freq_test <- sms_dtm_test[ , freq_words]
+
+dim(sms_dtm_freq_train)
+
+
+convert_values <- function(x) {
+  x <- ifelse(x > 0, "Yes", "No")
 }
 
-clean_corp <- clean_corpus(bullyword_corpus)
+sms_train <- apply(sms_dtm_freq_train, MARGIN = 2,
+                   convert_values)
+sms_test <- apply(sms_dtm_freq_test, MARGIN = 2,
+                  convert_values)
 
-clean_corp[[227]][1]
+#Create model from the training dataset
+sms_classifier <- naiveBayes(sms_train, sms_train_labels)
 
-bullywords_dtm <- DocumentTermMatrix(clean_corp)
-bullywords_dtm
+#Make predictions on test set
+sms_test_pred <- predict(sms_classifier, sms_test)
+
+#Create confusion matrix
+confusionMatrix(data = sms_test_pred, reference = sms_test_labels , positive = "Yes", dnn = c("Prediction", "Actual"))
